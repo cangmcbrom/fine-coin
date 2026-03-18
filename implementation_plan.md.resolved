@@ -1,0 +1,66 @@
+# FINE COIN - Telegram Tap-to-Earn Bot Implementation Plan
+
+## 🏗 Architecture Overview
+
+```
+fine-coin/
+├── server/
+│   ├── index.js              # Express server + Telegram Bot setup
+│   ├── database.js           # PostgreSQL connection & schema
+│   ├── routes/
+│   │   ├── game.js           # Tap, energy, balance APIs
+│   │   ├── upgrades.js       # Upgrade purchase APIs
+│   │   ├── stars.js          # Telegram Stars store APIs
+│   │   ├── invite.js         # Referral system APIs
+│   │   └── wallet.js         # Wallet APIs
+│   ├── middleware/
+│   │   ├── auth.js           # Telegram initData validation
+│   │   └── antiCheat.js      # Rate limiting & anti-bot measures
+│   └── utils/
+│       └── telegram.js       # Telegram Bot API helpers
+├── public/
+│   ├── index.html            # Main SPA entry
+│   ├── css/
+│   │   └── style.css         # All styling
+│   ├── js/
+│   │   ├── app.js            # Main app controller
+│   │   ├── game.js           # Tap game logic
+│   │   ├── upgrades.js       # Upgrades UI
+│   │   ├── store.js          # Stars store UI
+│   │   ├── invite.js         # Invite/referral UI
+│   │   ├── wallet.js         # Wallet UI
+│   │   └── api.js            # API client
+│   └── assets/
+│       └── (generated images)
+├── package.json
+├── .env.example
+└── README.md
+```
+
+## 🛠 Tech Stack
+- **Frontend**: Vanilla HTML/CSS/JS + Telegram Mini Apps SDK
+- **Backend**: Node.js + Express
+- **Database**: PostgreSQL (via `pg` package)
+- **Bot Framework**: `node-telegram-bot-api`
+- **Theme**: "This is Fine" meme dog, fire effects, warm orange/amber palette
+
+## 📱 Screens / Tabs
+1. **PLAY** - Main tap area with fire dog, energy bar, balance, countdown
+2. **UPGRADES** - Tap Power, Max Energy, Recharge Rate upgrades
+3. **STARS STORE** - Telegram Stars unlimited energy packages
+4. **INVITE** - Referral link, bonus info
+5. **WALLET** - Wallet connection panel (locked until distribution)
+
+## 🎮 Game Mechanics
+- Base tap rate: 0.2 FINE per tap (5 taps = 1 FINE)
+- Energy: 1000 max, 1 per tap, 10/min regen
+- Upgrades increase tap power, max energy, regen rate
+- Anti-cheat: server-side rate limiting, energy validation
+
+## 💰 Monetization
+- Telegram Stars for unlimited energy packages
+- 30 min = 5 Stars, 1 hour = 8 Stars, 24 hours = 50 Stars
+
+## 📅 Distribution
+- 2-month countdown from launch
+- FINE Coin balance determines memecoin distribution ratio

@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="description" content="FINE COIN - Tap to earn $FINE tokens! The 'This is Fine' meme dog tap-to-earn game on Telegram.">
+    <title>FINE COIN | Tap to Earn 🔥</title>
+    
+    <!-- Telegram Mini Apps SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Outfit:wght@700;800;900&display=swap" rel="stylesheet">
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Loading Screen -->
+        <div id="loading-screen" class="loading-screen">
+            <div class="loading-content">
+                <div class="loading-fire">🔥</div>
+                <img src="/assets/coin.png" alt="FINE COIN" class="loading-coin">
+                <h1 class="loading-title">FINE COIN</h1>
+                <p class="loading-subtitle">This is Fine. 🐕</p>
+                <div class="loading-bar">
+                    <div class="loading-bar-fill"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main App Container -->
+        <div id="main-app" class="main-app hidden">
+            
+            <!-- Distribution Countdown Banner -->
+            <div id="countdown-banner" class="countdown-banner">
+                <span class="countdown-flame">🔥</span>
+                <span class="countdown-text">$FINE Distribution: <strong id="countdown-days">-- Days</strong></span>
+                <span class="countdown-flame">🔥</span>
+            </div>
+
+            <!-- Screen Container -->
+            <div id="screen-container" class="screen-container">
+                
+                <!-- ===== PLAY SCREEN ===== -->
+                <div id="screen-play" class="screen active" data-screen="play">
+                    <!-- Header -->
+                    <div class="play-header">
+                        <div class="balance-display" id="balance-display">
+                            <img src="/assets/coin.png" alt="FINE" class="balance-coin-icon">
+                            <span class="balance-amount" id="balance-amount">0.0</span>
+                            <span class="balance-label">FINE</span>
+                        </div>
+                        <div class="stats-row">
+                            <div class="stat-item">
+                                <span class="stat-icon">⚡</span>
+                                <span class="stat-value" id="stat-tap-power">0.2</span>
+                                <span class="stat-label">/tap</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-icon">🏆</span>
+                                <span class="stat-value" id="stat-total-taps">0</span>
+                                <span class="stat-label">taps</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tap Area -->
+                    <div class="tap-area-container">
+                        <div class="fire-ring" id="fire-ring">
+                            <div class="fire-particle" style="--i:0"></div>
+                            <div class="fire-particle" style="--i:1"></div>
+                            <div class="fire-particle" style="--i:2"></div>
+                            <div class="fire-particle" style="--i:3"></div>
+                            <div class="fire-particle" style="--i:4"></div>
+                            <div class="fire-particle" style="--i:5"></div>
+                            <div class="fire-particle" style="--i:6"></div>
+                            <div class="fire-particle" style="--i:7"></div>
+                        </div>
+                        <div id="tap-button" class="tap-button">
+                            <img src="/assets/tap_dog.png" alt="Tap!" class="tap-dog-image" draggable="false">
+                        </div>
+                        <div id="tap-effects" class="tap-effects"></div>
+                    </div>
+
+                    <!-- Energy Bar -->
+                    <div class="energy-section">
+                        <div class="energy-bar-container">
+                            <div class="energy-bar-bg">
+                                <div id="energy-bar-fill" class="energy-bar-fill" style="width: 100%"></div>
+                            </div>
+                            <div class="energy-info">
+                                <span class="energy-icon" id="energy-icon">⚡</span>
+                                <span id="energy-text" class="energy-text">1000 / 1000</span>
+                            </div>
+                        </div>
+                        <div id="unlimited-badge" class="unlimited-badge hidden">
+                            <span>♾️ UNLIMITED</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== UPGRADES SCREEN ===== -->
+                <div id="screen-upgrades" class="screen" data-screen="upgrades">
+                    <div class="screen-header">
+                        <h2 class="screen-title">🔧 Upgrades</h2>
+                        <div class="screen-balance">
+                            <img src="/assets/coin.png" alt="FINE" class="small-coin-icon">
+                            <span id="upgrades-balance">0.0</span>
+                        </div>
+                    </div>
+                    <div id="upgrades-list" class="upgrades-list">
+                        <!-- Dynamically populated -->
+                    </div>
+                </div>
+
+                <!-- ===== STARS STORE SCREEN ===== -->
+                <div id="screen-store" class="screen" data-screen="store">
+                    <div class="screen-header">
+                        <h2 class="screen-title">⭐ Stars Store</h2>
+                        <p class="screen-subtitle">Buy unlimited energy with Telegram Stars!</p>
+                    </div>
+                    <div id="store-packages" class="store-packages">
+                        <!-- Dynamically populated -->
+                    </div>
+                </div>
+
+                <!-- ===== INVITE SCREEN ===== -->
+                <div id="screen-invite" class="screen" data-screen="invite">
+                    <div class="screen-header">
+                        <h2 class="screen-title">🎁 Invite Friends</h2>
+                        <p class="screen-subtitle">Earn <strong>50 FINE</strong> for each friend!</p>
+                    </div>
+                    <div class="invite-content">
+                        <div class="invite-stats">
+                            <div class="invite-stat-card">
+                                <span class="invite-stat-number" id="invite-count">0</span>
+                                <span class="invite-stat-label">Friends Invited</span>
+                            </div>
+                            <div class="invite-stat-card">
+                                <span class="invite-stat-number" id="invite-earned">0</span>
+                                <span class="invite-stat-label">FINE Earned</span>
+                            </div>
+                        </div>
+                        <div class="invite-code-section">
+                            <label class="invite-label">Your Referral Code</label>
+                            <div class="invite-code-box">
+                                <span id="referral-code" class="referral-code">FINE...</span>
+                                <button id="copy-code-btn" class="copy-btn" onclick="copyReferralCode()">📋 Copy</button>
+                            </div>
+                        </div>
+                        <button id="share-btn" class="share-button" onclick="shareInviteLink()">
+                            <span>📤</span> Share Invite Link
+                        </button>
+                        <div class="referral-input-section">
+                            <label class="invite-label">Have a referral code?</label>
+                            <div class="referral-input-box">
+                                <input type="text" id="referral-input" class="referral-input" placeholder="Enter code...">
+                                <button id="apply-code-btn" class="apply-btn" onclick="applyReferralCode()">Apply</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== WALLET SCREEN ===== -->
+                <div id="screen-wallet" class="screen" data-screen="wallet">
+                    <div class="screen-header">
+                        <h2 class="screen-title">💼 Wallet</h2>
+                    </div>
+                    <div class="wallet-content">
+                        <div class="wallet-card">
+                            <div class="wallet-icon-large">🔒</div>
+                            <h3 class="wallet-card-title">Wallet Connection</h3>
+                            <p class="wallet-card-desc">
+                                Wallet connection will be enabled <strong>7 days before</strong> 
+                                the $FINE memecoin distribution.
+                            </p>
+                            <div class="wallet-countdown">
+                                <div class="wallet-countdown-item">
+                                    <span class="wallet-countdown-number" id="wallet-days-left">--</span>
+                                    <span class="wallet-countdown-label">Days Left</span>
+                                </div>
+                            </div>
+                            <p class="wallet-info-text">
+                                Your accumulated <strong><span id="wallet-balance">0</span> FINE</strong> will determine 
+                                your share of the memecoin distribution.
+                            </p>
+                        </div>
+                        <div class="wallet-notice">
+                            <span class="notice-icon">ℹ️</span>
+                            <p>The exact distribution ratio will be announced closer to the date. Keep tapping to maximize your share!</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bottom Navigation -->
+            <nav id="bottom-nav" class="bottom-nav">
+                <button class="nav-btn active" data-tab="play" onclick="switchTab('play')">
+                    <span class="nav-icon">🎮</span>
+                    <span class="nav-label">Play</span>
+                </button>
+                <button class="nav-btn" data-tab="upgrades" onclick="switchTab('upgrades')">
+                    <span class="nav-icon">⬆️</span>
+                    <span class="nav-label">Upgrades</span>
+                </button>
+                <button class="nav-btn" data-tab="store" onclick="switchTab('store')">
+                    <span class="nav-icon">⭐</span>
+                    <span class="nav-label">Stars</span>
+                </button>
+                <button class="nav-btn" data-tab="invite" onclick="switchTab('invite')">
+                    <span class="nav-icon">🎁</span>
+                    <span class="nav-label">Invite</span>
+                </button>
+                <button class="nav-btn" data-tab="wallet" onclick="switchTab('wallet')">
+                    <span class="nav-icon">💼</span>
+                    <span class="nav-label">Wallet</span>
+                </button>
+            </nav>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast hidden"></div>
+
+    <!-- Scripts -->
+    <script src="/js/api.js"></script>
+    <script src="/js/game.js"></script>
+    <script src="/js/upgrades.js"></script>
+    <script src="/js/store.js"></script>
+    <script src="/js/invite.js"></script>
+    <script src="/js/wallet.js"></script>
+    <script src="/js/app.js"></script>
+</body>
+</html>
