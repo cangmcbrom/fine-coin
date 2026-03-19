@@ -9,6 +9,7 @@ import time
 import json
 import hmac
 import hashlib
+import requests as http_requests
 from urllib.parse import unquote, parse_qs
 from functools import wraps
 
@@ -35,6 +36,7 @@ CORS(app)
 BOT_TOKEN = os.getenv('BOT_TOKEN', 'test_token')
 SECRET_KEY = os.getenv('SECRET_KEY', 'dev_secret_key')
 DISTRIBUTION_DATE = os.getenv('DISTRIBUTION_DATE', '2026-05-19')
+MINI_APP_URL = os.getenv('MINI_APP_URL', 'https://fine-coin.onrender.com')
 REFERRAL_BONUS = float(os.getenv('REFERRAL_BONUS', '50'))
 
 app.secret_key = SECRET_KEY
@@ -317,63 +319,125 @@ def api_buy_upgrade():
     return jsonify(result)
 
 
+# ===== Star Packages Config =====
+STAR_PACKAGES = {
+    'half_hour': {
+        'id': 'half_hour',
+        'name': '30 Min Unlimited Energy',
+        'description': 'Non-stop tapping for 30 minutes!',
+        'duration_minutes': 30,
+        'stars_cost': 5,
+        'icon': '⏱️',
+        'popular': False
+    },
+    'one_hour': {
+        'id': 'one_hour',
+        'name': '1 Hour Unlimited Energy',
+        'description': 'One full hour of unlimited power!',
+        'duration_minutes': 60,
+        'stars_cost': 8,
+        'icon': '⏰',
+        'popular': True
+    },
+    'twenty_four_hours': {
+        'id': 'twenty_four_hours',
+        'name': '24 Hours Unlimited Energy',
+        'description': 'Premium: Full day of unlimited energy!',
+        'duration_minutes': 1440,
+        'stars_cost': 50,
+        'icon': '👑',
+        'popular': False
+    }
+}
+
+
 @app.route('/api/stars/packages', methods=['GET'])
 def api_star_packages():
     """Get available Star packages."""
-    packages = [
-        {
-            'id': 'half_hour',
-            'name': '30 Min Unlimited Energy',
-            'description': 'Non-stop tapping for 30 minutes!',
-            'duration_minutes': 30,
-            'stars_cost': 5,
-            'icon': '⏱️',
-            'popular': False
-        },
-        {
-            'id': 'one_hour',
-            'name': '1 Hour Unlimited Energy',
-            'description': 'One full hour of unlimited power!',
-            'duration_minutes': 60,
-            'stars_cost': 8,
-            'icon': '⏰',
-            'popular': True
-        },
-        {
-            'id': 'twenty_four_hours',
-            'name': '24 Hours Unlimited Energy',
-            'description': 'Premium: Full day of unlimited energy!',
-            'duration_minutes': 1440,
-            'stars_cost': 50,
-            'icon': '👑',
-            'popular': False
-        }
-    ]
+    packages = list(STAR_PACKAGES.values())
     return jsonify({'packages': packages})
+
+
+@app.route('/api/stars/create-invoice', methods=['POST'])
+@require_auth
+def api_create_invoice():
+    """
+    Create a Telegram Stars invoice link for a package.
+    Uses the Telegram Bot API createInvoiceLink method.
+    """
+    user = request.telegram_user
+    data = request.get_json() or {}
+    package_id = data.get('package_id')
+
+    if package_id not in STAR_PACKAGES:
+        return jsonify({'error': 'Invalid package'}), 400
+
+    pkg = STAR_PACKAGES[package_id]
+
+    # Build payload with user info for tracking
+    payload = json.dumps({
+        'telegram_id': user['telegram_id'],
+        'package_id': package_id,
+        'timestamp': int(time.time())
+    })
+
+    # Call Telegram Bot API to create invoice link
+    telegram_api_url = f"https://api.telegram.org/bot{BOT_TOKEN}/createInvoiceLink"
+
+    invoice_data = {
+        'title': pkg['name'],
+        'description': pkg['description'],
+        'payload': payload,
+        'currency': 'XTR',  # XTR = Telegram Stars
+        'prices': json.dumps([{
+            'label': pkg['name'],
+            'amount': pkg['stars_cost']
+        }])
+        # provider_token is not needed for Telegram Stars
+    }
+
+    try:
+        resp = http_requests.post(telegram_api_url, json=invoice_data, timeout=10)
+        resp_data = resp.json()
+
+        if resp_data.get('ok'):
+            invoice_url = resp_data['result']
+            return jsonify({
+                'success': True,
+                'invoice_url': invoice_url,
+                'package_id': package_id,
+                'stars_cost': pkg['stars_cost']
+            })
+        else:
+            print(f"[Stars] Telegram API error: {resp_data}")
+            return jsonify({'error': 'Failed to create invoice', 'details': resp_data.get('description', '')}), 500
+    except Exception as e:
+        print(f"[Stars] Invoice creation error: {e}")
+        return jsonify({'error': 'Failed to create invoice'}), 500
 
 
 @app.route('/api/stars/purchase', methods=['POST'])
 @require_auth
 def api_purchase_stars():
-    """Purchase a Stars package (simulated - in real app, use Telegram Payments API)."""
+    """
+    Fallback: Direct purchase for development/testing mode only.
+    In production, payments go through Telegram's invoice system.
+    """
+    if BOT_TOKEN != 'test_token':
+        return jsonify({'error': 'Use Telegram Stars payment. This endpoint is for dev mode only.'}), 400
+
     user = request.telegram_user
     data = request.get_json() or {}
     package_id = data.get('package_id')
 
-    packages = {
-        'half_hour': {'duration': 30, 'stars': 5},
-        'one_hour': {'duration': 60, 'stars': 8},
-        'twenty_four_hours': {'duration': 1440, 'stars': 50}
-    }
-
-    if package_id not in packages:
+    if package_id not in STAR_PACKAGES:
         return jsonify({'error': 'Invalid package'}), 400
 
-    pkg = packages[package_id]
+    pkg = STAR_PACKAGES[package_id]
     result = activate_unlimited_energy(
         user['telegram_id'],
-        pkg['duration'],
-        pkg['stars'],
+        pkg['duration_minutes'],
+        pkg['stars_cost'],
         package_id
     )
 
@@ -381,6 +445,174 @@ def api_purchase_stars():
         return jsonify(result), 400
 
     return jsonify(result)
+
+
+# ===== Telegram Webhook (for payment events) =====
+
+@app.route('/api/telegram/webhook', methods=['POST'])
+def telegram_webhook():
+    """
+    Handle Telegram webhook updates.
+    Processes pre_checkout_query and successful_payment events.
+    """
+    update = request.get_json()
+    if not update:
+        return jsonify({'ok': True})
+
+    # Handle pre_checkout_query - MUST answer within 10 seconds
+    if 'pre_checkout_query' in update:
+        query = update['pre_checkout_query']
+        query_id = query['id']
+        payload_str = query.get('invoice_payload', '')
+
+        try:
+            payload = json.loads(payload_str)
+            package_id = payload.get('package_id')
+
+            if package_id not in STAR_PACKAGES:
+                # Reject payment
+                answer_pre_checkout(query_id, ok=False, error_message='Invalid package')
+                return jsonify({'ok': True})
+
+            # Approve payment
+            answer_pre_checkout(query_id, ok=True)
+            print(f"[Stars] Pre-checkout approved for user {payload.get('telegram_id')}, package: {package_id}")
+
+        except Exception as e:
+            print(f"[Stars] Pre-checkout error: {e}")
+            answer_pre_checkout(query_id, ok=False, error_message='Payment processing error')
+
+        return jsonify({'ok': True})
+
+    # Handle successful_payment
+    if 'message' in update and 'successful_payment' in update.get('message', {}):
+        message = update['message']
+        payment = message['successful_payment']
+        user_from = message.get('from', {})
+        telegram_id = user_from.get('id')
+
+        payload_str = payment.get('invoice_payload', '')
+        charge_id = payment.get('telegram_payment_charge_id', '')
+        total_amount = payment.get('total_amount', 0)
+
+        try:
+            payload = json.loads(payload_str)
+            package_id = payload.get('package_id')
+            original_telegram_id = payload.get('telegram_id', telegram_id)
+
+            if package_id in STAR_PACKAGES:
+                pkg = STAR_PACKAGES[package_id]
+
+                # Activate unlimited energy for the user
+                result = activate_unlimited_energy(
+                    original_telegram_id,
+                    pkg['duration_minutes'],
+                    pkg['stars_cost'],
+                    package_id
+                )
+
+                print(f"[Stars] Payment successful! User: {original_telegram_id}, "
+                      f"Package: {package_id}, Stars: {total_amount}, "
+                      f"Charge ID: {charge_id}, Result: {result}")
+
+                # Send confirmation message to user
+                send_payment_confirmation(original_telegram_id, pkg, charge_id)
+            else:
+                print(f"[Stars] Unknown package in payment: {package_id}")
+
+        except Exception as e:
+            print(f"[Stars] Payment processing error: {e}")
+
+        return jsonify({'ok': True})
+
+    return jsonify({'ok': True})
+
+
+def answer_pre_checkout(query_id, ok=True, error_message=None):
+    """Answer a pre-checkout query via Telegram Bot API."""
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/answerPreCheckoutQuery"
+    data = {
+        'pre_checkout_query_id': query_id,
+        'ok': ok
+    }
+    if not ok and error_message:
+        data['error_message'] = error_message
+
+    try:
+        http_requests.post(url, json=data, timeout=5)
+    except Exception as e:
+        print(f"[Stars] Failed to answer pre-checkout: {e}")
+
+
+def send_payment_confirmation(telegram_id, package, charge_id):
+    """Send a confirmation message to the user after successful payment."""
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+    message = (
+        f"✅ *Payment Successful!*\n\n"
+        f"🎉 You purchased: *{package['name']}*\n"
+        f"⭐ Stars spent: *{package['stars_cost']}*\n"
+        f"⏱ Duration: *{package['duration_minutes']} minutes*\n\n"
+        f"♾️ Your unlimited energy is now active!\n"
+        f"Open the app and start tapping! 🔥"
+    )
+
+    data = {
+        'chat_id': telegram_id,
+        'text': message,
+        'parse_mode': 'Markdown'
+    }
+
+    try:
+        http_requests.post(url, json=data, timeout=5)
+    except Exception as e:
+        print(f"[Stars] Failed to send confirmation: {e}")
+
+
+@app.route('/api/telegram/setup-webhook', methods=['POST'])
+def setup_webhook():
+    """Setup Telegram webhook for payment events."""
+    webhook_url = f"{MINI_APP_URL}/api/telegram/webhook"
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook"
+
+    try:
+        resp = http_requests.post(url, json={
+            'url': webhook_url,
+            'allowed_updates': ['pre_checkout_query', 'message']
+        }, timeout=10)
+        resp_data = resp.json()
+        print(f"[Webhook] Setup result: {resp_data}")
+        return jsonify(resp_data)
+    except Exception as e:
+        print(f"[Webhook] Setup error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/stars/check-payment', methods=['POST'])
+@require_auth
+def api_check_payment():
+    """
+    Check if a payment was processed for the user.
+    Called by frontend after openInvoice callback.
+    """
+    user = request.telegram_user
+    telegram_id = user['telegram_id']
+    now = time.time()
+
+    # Re-fetch user from DB to get latest unlimited_energy_until
+    fresh_user = get_user(telegram_id)
+    if not fresh_user:
+        return jsonify({'error': 'User not found'}), 404
+
+    has_unlimited = fresh_user['unlimited_energy_until'] > now
+    max_energy = get_max_energy(fresh_user['max_energy_level'])
+
+    return jsonify({
+        'success': True,
+        'has_unlimited': has_unlimited,
+        'unlimited_until': fresh_user['unlimited_energy_until'] if has_unlimited else None,
+        'current_energy': max_energy if has_unlimited else int(calculate_current_energy(fresh_user, now)),
+        'max_energy': max_energy
+    })
 
 
 @app.route('/api/invite/info', methods=['GET'])

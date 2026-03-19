@@ -99,6 +99,14 @@ const API = (() => {
         return request('/api/stars/purchase', 'POST', { package_id: packageId });
     }
 
+    function createInvoice(packageId) {
+        return request('/api/stars/create-invoice', 'POST', { package_id: packageId });
+    }
+
+    function checkPayment() {
+        return request('/api/stars/check-payment', 'POST', {});
+    }
+
     // ===== Invite =====
     function getInviteInfo() {
         return request('/api/invite/info', 'GET');
@@ -129,6 +137,8 @@ const API = (() => {
         buyUpgrade,
         getStorePackages,
         purchasePackage,
+        createInvoice,
+        checkPayment,
         getInviteInfo,
         applyReferral,
         getWalletStatus,
